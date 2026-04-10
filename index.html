@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CS2 Team Randomizer — Pro</title>
+    <title>CS2 Randomizer</title>
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -180,7 +180,7 @@
                 <span>Темная тема</span>
                 <label class="switch"><input type="checkbox" id="theme-checkbox" onchange="toggleTheme()"><span class="slider"></span></label>
             </div>
-            <button class="btn btn-white" style="margin-top:10px; border: 1px solid #ccc;" onclick="resetToPool()">Вернуть в пул</button>
+            <button class="btn btn-white" style="margin-top:10px; border: 1px solid #ccc;" onclick="resetToPool()">Вернуть всех в пул</button>
             <button class="btn btn-white" style="margin-top:10px; background: rgba(255, 77, 77, 0.1); color: #ff4d4d;" onclick="clearAll()">Очистить всех</button>
             <button class="btn btn-white" style="margin-top:20px; background:#DCDCDC;" onclick="closeModal('settings-modal')">Закрыть</button>
         </div>
