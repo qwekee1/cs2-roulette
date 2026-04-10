@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS2 Team Randomizer — Pro</title>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <style>
+        :root {
+            --bg-color: #E8E8E8;
+            --col-bg: #FFFFFF;
+            --col-text: #121212;
+            --card-bg: #DCDCDC;
+            --card-text: #121212;
+            --sub-text: rgba(0, 0, 0, 0.2);
+            --header-sub: rgba(0, 0, 0, 0.4);
+            --btn-accent: #1e9761; /* Твой новый зеленый */
+            --btn-white: #FFFFFF;
+        }
+
+        html[data-theme="dark"] {
+            --bg-color: #0f0f0f;
+            --col-bg: #1e1e1e;
+            --col-text: #ffffff;
+            --card-bg: #2d2d2d;
+            --card-text: #ffffff;
+            --sub-text: rgb(255 255 255 / 40%);
+            --header-sub: rgb(255 255 255 / 40%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Gilroy', 'Segoe UI', sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color); 
+            color: var(--col-text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 80px 20px 40px 20px; 
+            transition: background-color 0.3s ease;
+        }
+
+        .search-container { width: 100%; max-width: 1240px; margin-bottom: 30px; display: flex; }
+        .search-input {
+            width: 100%; background-color: var(--col-bg); border: none; padding: 18px 30px;
+            border-radius: 50px; color: var(--col-text); font-size: 16px; outline: none; user-select: text;
+        }
+
+        .board { display: flex; gap: 20px; width: 100%; max-width: 1400px; margin-bottom: 30px; justify-content: center; }
+        .column {
+            background-color: var(--col-bg); flex: 1; min-width: 300px; height: 480px;
+            border-radius: 30px; padding: 25px 15px; display: flex; flex-direction: column; transition: background-color 0.3s ease;
+        }
+        .column-header { color: var(--col-text); font-size: 20px; font-weight: bold; margin-bottom: 15px; text-align: center; }
+        .count-badge { color: var(--header-sub); font-weight: 500; margin-left: 8px; }
+
+        .task-list { 
+            width: 100%; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; scrollbar-width: none;
+        }
+        .task-list::-webkit-scrollbar { display: none; }
+
+        .card {
+            flex-shrink: 0;
+            background-color: var(--card-bg); color: var(--card-text); padding: 12px 20px;
+            border-radius: 50px; font-size: 16px; font-weight: 600; display: flex; align-items: center;
+            cursor: grab; transition: background-color 0.3s, opacity 0.3s, transform 0.2s;
+        }
+
+        #zone-pool .card { padding: 7px 18px; font-size: 14px; gap: 5px; }
+        #zone-pool .task-list { gap: 6px; }
+        #zone-team-a .card, #zone-team-b .card { padding: 16px 20px; }
+
+        .card.search-hidden { opacity: 0.15; transform: scale(0.95); }
+
+        @keyframes flyIn {
+            from { transform: translateY(15px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .card.animating { animation: flyIn 0.3s ease-out; }
+
+        .card:active { cursor: grabbing; }
+        .card-number { color: var(--sub-text); font-size: 12px; width: 25px; }
+        .card-title { flex-grow: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .controls { display: flex; gap: 12px; width: 100%; max-width: 850px; margin-top: 10px; } 
+        .btn {
+            flex: 1; border: none; padding: 18px 20px;
+            border-radius: 50px; font-size: 15px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: all 0.2s ease;
+        }
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        
+        .btn-white { background-color: var(--btn-white); color: #121212; order: 1; }
+        .btn-random { background-color: var(--btn-accent); color: white; order: 2; flex: 1.2; }
+        .btn-settings { background-color: var(--btn-white); color: #121212; order: 3; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); z-index: 2000;
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: all 0.3s;
+        }
+        .modal-overlay.is-open { opacity: 1; visibility: visible; }
+        .modal-content { background-color: var(--col-bg); width: 400px; padding: 30px; border-radius: 30px; display: flex; flex-direction: column; }
+
+        .settings-row { display: flex; justify-content: space-between; align-items: center; background: rgba(128,128,128,0.1); padding: 15px 25px; border-radius: 20px; margin-bottom: 10px;}
+        
+        #context-menu {
+            position: fixed; background: #222; border-radius: 18px; padding: 8px; width: 180px; display: none; z-index: 3000; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .menu-item { padding: 12px 16px; color: #fff; font-size: 14px; cursor: pointer; border-radius: 12px; }
+        .menu-item:hover { background: #333; }
+
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #4cd964; }
+        input:checked + .slider:before { transform: translateX(24px); }
+    </style>
+</head>
+<body>
+
+    <div class="search-container">
+        <input type="text" id="global-search" class="search-input" placeholder="Поиск ника..." oninput="handleSearch()">
+    </div>
+
+    <div class="board">
+        <div class="column" id="zone-pool">
+            <h2 class="column-header">Пул игроков <span class="count-badge">0</span></h2>
+            <div class="task-list"></div>
+        </div>
+        <div class="column" id="zone-team-a">
+            <h2 class="column-header" style="color: #4ea8de;">TEAM A <span class="count-badge">0</span></h2>
+            <div class="task-list"></div>
+        </div>
+        <div class="column" id="zone-team-b">
+            <h2 class="column-header" style="color: #ff9f43;">TEAM B <span class="count-badge">0</span></h2>
+            <div class="task-list"></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-white" onclick="openModal('edit-modal')">Добавить игрока</button>
+        <button class="btn btn-random" onclick="randomizeTeams()">Зарандомить</button>
+        <button class="btn btn-settings" onclick="openModal('settings-modal')">Настройки</button>
+    </div>
+
+    <div class="modal-overlay" id="edit-modal" onclick="closeOnOverlay(event)">
+        <div class="modal-content">
+            <h3 id="modal-title" style="text-align:center; margin-bottom:20px;">Новый игрок</h3>
+            <input type="text" id="player-input" 
+                   style="background:rgba(128,128,128,0.1); border:none; padding:15px; border-radius:15px; color:inherit; margin-bottom:20px; outline:none; user-select: text;" 
+                   placeholder="Никнейм..."
+                   onkeydown="if(event.key === 'Enter') savePlayer()">
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-white" style="background:#DCDCDC;" onclick="closeModal('edit-modal')">Отмена</button>
+                <button class="btn btn-random" onclick="savePlayer()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settings-modal" onclick="closeOnOverlay(event)">
+        <div class="modal-content">
+            <h3 style="text-align:center; margin-bottom:20px;">Опции</h3>
+            <div class="settings-row">
+                <span>Темная тема</span>
+                <label class="switch"><input type="checkbox" id="theme-checkbox" onchange="toggleTheme()"><span class="slider"></span></label>
+            </div>
+            <button class="btn btn-white" style="margin-top:10px; border: 1px solid #ccc;" onclick="resetToPool()">Вернуть в пул</button>
+            <button class="btn btn-white" style="margin-top:10px; background: rgba(255, 77, 77, 0.1); color: #ff4d4d;" onclick="clearAll()">Очистить всех</button>
+            <button class="btn btn-white" style="margin-top:20px; background:#DCDCDC;" onclick="closeModal('settings-modal')">Закрыть</button>
+        </div>
+    </div>
+
+    <div id="context-menu">
+        <div class="menu-item" onclick="editCurrent()">Переименовать</div>
+        <div class="menu-item" style="color:#ff4d4d" onclick="deleteCurrent()">Удалить</div>
+    </div>
+
+    <script>
+        let dragItem = null, avatar = null, shiftX, shiftY, contextTarget = null;
+
+        function createCard(title, isRandomizing = false) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            if (isRandomizing) {
+                card.classList.add('animating');
+                setTimeout(() => card.classList.remove('animating'), 400);
+            }
+            card.innerHTML = `<span class="card-number"></span><span class="card-title">${title}</span>`;
+            card.addEventListener('mousedown', onMouseDown);
+            return card;
+        }
+
+        function savePlayer() {
+            const val = document.getElementById('player-input').value.trim();
+            if (val) {
+                if (contextTarget) {
+                    contextTarget.querySelector('.card-title').textContent = val;
+                } else {
+                    document.getElementById('zone-pool').querySelector('.task-list').appendChild(createCard(val));
+                }
+                closeModal('edit-modal');
+                refreshUI();
+            }
+        }
+
+        function resetToPool() {
+            const poolList = document.getElementById('zone-pool').querySelector('.task-list');
+            const teamA = document.getElementById('zone-team-a').querySelectorAll('.card');
+            const teamB = document.getElementById('zone-team-b').querySelectorAll('.card');
+            
+            [...teamA, ...teamB].forEach(card => {
+                poolList.appendChild(card);
+            });
+            refreshUI();
+            closeModal('settings-modal');
+        }
+
+        function randomizeTeams() {
+            const poolList = document.getElementById('zone-pool').querySelector('.task-list');
+            const teamAList = document.getElementById('zone-team-a').querySelector('.task-list');
+            const teamBList = document.getElementById('zone-team-b').querySelector('.task-list');
+
+            let allPlayers = Array.from(document.querySelectorAll('.card')).map(c => c.querySelector('.card-title').textContent);
+            if (allPlayers.length < 2) return;
+
+            for (let i = allPlayers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allPlayers[i], allPlayers[j]] = [allPlayers[j], allPlayers[i]];
+            }
+
+            document.querySelectorAll('.task-list').forEach(l => l.innerHTML = '');
+
+            allPlayers.forEach((name, index) => {
+                setTimeout(() => {
+                    const card = createCard(name, true);
+                    if (index % 2 === 0 && teamAList.children.length < 5) {
+                        teamAList.appendChild(card);
+                    } else if (teamBList.children.length < 5) {
+                        teamBList.appendChild(card);
+                    } else {
+                        poolList.appendChild(card);
+                    }
+                    refreshUI();
+                }, index * 40);
+            });
+        }
+
+        function openModal(id) {
+            if (id === 'edit-modal' && !contextTarget) document.getElementById('player-input').value = '';
+            document.getElementById(id).classList.add('is-open');
+            if (id === 'edit-modal') setTimeout(() => document.getElementById('player-input').focus(), 100);
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('is-open');
+            contextTarget = null;
+        }
+
+        function clearAll() {
+            if(confirm("Удалить всех игроков?")) {
+                document.querySelectorAll('.task-list').forEach(l => l.innerHTML = '');
+                refreshUI();
+                closeModal('settings-modal');
+            }
+        }
+
+        function onMouseDown(e) {
+            if (e.which !== 1) return;
+            const card = e.target.closest('.card');
+            dragItem = card;
+            const rect = dragItem.getBoundingClientRect();
+            shiftX = e.clientX - rect.left;
+            shiftY = e.clientY - rect.top;
+            
+            avatar = dragItem.cloneNode(true);
+            avatar.style.cssText = `position:fixed; pointer-events:none; z-index:9999; opacity:0.8; width:${dragItem.offsetWidth}px;`;
+            document.body.appendChild(avatar);
+            dragItem.style.opacity = '0.3';
+            
+            updateAvatarPos(e.clientX, e.clientY);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        }
+
+        function updateAvatarPos(x, y) {
+            avatar.style.left = (x - shiftX) + 'px';
+            avatar.style.top = (y - shiftY) + 'px';
+        }
+
+        function onMouseMove(e) {
+            updateAvatarPos(e.clientX, e.clientY);
+            avatar.style.display = 'none';
+            const el = document.elementFromPoint(e.clientX, e.clientY);
+            avatar.style.display = 'flex';
+            
+            const list = el?.closest('.task-list');
+            if (list) {
+                list.appendChild(dragItem);
+                refreshUI();
+            }
+        }
+
+        function onMouseUp() {
+            if (avatar) avatar.remove();
+            if (dragItem) dragItem.style.opacity = '1';
+            dragItem = null;
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            refreshUI();
+        }
+
+        document.addEventListener('contextmenu', e => {
+            const card = e.target.closest('.card');
+            if (card) {
+                e.preventDefault();
+                contextTarget = card;
+                const menu = document.getElementById('context-menu');
+                menu.style.display = 'block';
+                menu.style.left = e.pageX + 'px';
+                menu.style.top = e.pageY + 'px';
+            }
+        });
+
+        document.addEventListener('click', () => document.getElementById('context-menu').style.display = 'none');
+
+        function editCurrent() {
+            document.getElementById('player-input').value = contextTarget.querySelector('.card-title').textContent;
+            openModal('edit-modal');
+        }
+
+        function deleteCurrent() { contextTarget.remove(); refreshUI(); }
+
+        function refreshUI() {
+            document.querySelectorAll('.column').forEach(col => {
+                const cards = col.querySelectorAll('.card');
+                col.querySelector('.count-badge').textContent = cards.length;
+                cards.forEach((c, i) => c.querySelector('.card-number').textContent = i + 1);
+            });
+            const data = {};
+            document.querySelectorAll('.column').forEach(col => {
+                data[col.id] = Array.from(col.querySelectorAll('.card')).map(c => c.querySelector('.card-title').textContent);
+            });
+            localStorage.setItem('cs2TeamsData', JSON.stringify(data));
+        }
+
+        function handleSearch() {
+            const q = document.getElementById('global-search').value.toLowerCase();
+            document.querySelectorAll('.card').forEach(c => {
+                const name = c.querySelector('.card-title').textContent.toLowerCase();
+                if (!q || name.includes(q)) {
+                    c.classList.remove('search-hidden');
+                } else {
+                    c.classList.add('search-hidden');
+                }
+            });
+        }
+
+        function toggleTheme() {
+            const theme = document.getElementById('theme-checkbox').checked ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+        }
+
+        function closeOnOverlay(e) { if (e.target.classList.contains('modal-overlay')) closeModal(e.target.id); }
+
+        window.onload = () => {
+            const theme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            document.getElementById('theme-checkbox').checked = (theme === 'dark');
+            const saved = JSON.parse(localStorage.getItem('cs2TeamsData'));
+            if (saved) {
+                Object.keys(saved).forEach(id => {
+                    const list = document.getElementById(id)?.querySelector('.task-list');
+                    if (list) saved[id].forEach(name => list.appendChild(createCard(name)));
+                });
+            }
+            refreshUI();
+        };
+    </script>
+</body>
+</html>
