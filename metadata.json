@@ -1,0 +1,8 @@
+{
+  "name": "CS2 Terminal Randomizer",
+  "description": "Cyberpunk terminal styled randomizer for CS2 teams and maps.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
